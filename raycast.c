@@ -8,6 +8,7 @@
 #define AUTHOR "CBLAZER"
 #define RGB_NUMBER 255
 
+
 //struct for holding objects
 typedef struct {
     char *type;
@@ -16,6 +17,9 @@ typedef struct {
     double *position;
     double *normal;
     double radius;
+    double reflect;
+    double refract;
+    double refractIndex;
 } Object;
 
 Object objects[128]; //128 objects per assignment
@@ -30,8 +34,11 @@ typedef struct {
     double radialA2;
     double theta;
     double angularA0;
-    double *direction; 
+    double *direction;
 } Light;
+
+Light lights[128]; //array of lights
+
 
 typedef struct {
     double red;
@@ -39,7 +46,7 @@ typedef struct {
     double blue;
 } Pixel;
 
-Light lights[128]; //array of lights
+
 
 int line = 1;
 int Width;
@@ -226,6 +233,12 @@ void read_scene(char* filename) {
           else if (strcmp(key, "radius") == 0) {
             objects[objectIndex].radius = next_number(json);
           }
+          else if (strcmp(key, "reflectivity") == 0) {
+            objects[objectIndex].reflect = next_number(json);
+          }
+          else if (strcmp(key, "refractivity") == 0) {
+            objects[objectIndex].refract = next_number(json);
+          }
           else if (strcmp(key, "diffuse_color") == 0) {
             objects[objectIndex].difColor = next_vector(json);
           }
@@ -263,7 +276,7 @@ void read_scene(char* filename) {
           }
           else if (strcmp(key, "direction") == 0) {
             lights[lightIndex].direction = next_vector(json);
-          } 
+          }
           else {
             fprintf(stderr, "Error: Unknown property, \"%s\", on line %d.\n",
               key, line);
@@ -360,7 +373,7 @@ void vectorReflect(double* d, double* n, double* r){
   else{
     vectorMult(d, 0, r);
   }
-  
+
 }
 
 void raycast() {
@@ -390,7 +403,7 @@ void raycast() {
       //replace vector with unit vector
       x = x/magnitude;
       y = y/magnitude;
-      z = z/magnitude; 
+      z = z/magnitude;
 
       double min = 999999999999999999; //set min so that close objects display over further ones
       objectIndex = 0;
@@ -483,13 +496,13 @@ void raycast() {
           if (objects[objectIndex2].difColor != NULL) {
             double t; // Compare with lightT
             if (strcmp(objects[objectIndex2].type, "sphere") == 0) {
-          
+
               double shadowObject[3];
               vectorSub(objects[objectIndex2].position, lights[lightIndex].position, shadowObject);
 
-           
-              t = tClosestApproachSphere(lightUnitVector, shadowObject); 
-              double shadowObjectT[3]; 
+
+              t = tClosestApproachSphere(lightUnitVector, shadowObject);
+              double shadowObjectT[3];
               vectorMult(lightUnitVector, t, shadowObjectT);
 
               double dist = distance(shadowObjectT, objects[objectIndex2].position);
@@ -556,7 +569,7 @@ void raycast() {
           double temp[3];
 
           vectorAdd(difContribution, specContribution, temp);
-          
+
           vectorMult(temp, radialAttenuation, temp);
 
           if(temp[0] > 1){
@@ -580,7 +593,7 @@ void raycast() {
         lightIndex++;
         if (lights[lightIndex].color == NULL) {
         }
-        
+
       }
 
       /*if(min == 999999999999999999){
@@ -627,7 +640,7 @@ void write_scene(char *filename, int format) {
 
       color = (int) (viewPlane[index].red * 255);
       fprintf(ppm, "%d\n", color);
-      
+
       color = (int) (viewPlane[index].green * 255);
       fprintf(ppm, "%d\n", color);
       color = (int) (viewPlane[index].blue * 255);
@@ -707,7 +720,7 @@ void testPrint(){
     index++;
     printf("\n\n");
   }
-  
+
 }
 
 
@@ -723,7 +736,7 @@ int main(int argc, char** argv) {
 
     read_scene(argv[3]);
 
-    viewPlane = (Pixel *)malloc(Width * Height * sizeof(Pixel));  
+    viewPlane = (Pixel *)malloc(Width * Height * sizeof(Pixel));
 
     //testPrint();
     raycast();
