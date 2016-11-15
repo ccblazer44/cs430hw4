@@ -353,6 +353,12 @@ void vectorUnit(double *in, double *out){
 
 }
 
+// added my own sqr function like c's built in sqrt
+double sqr(double num){
+  return num*num;
+}
+
+
 double distance(double* in1, double* in2){
   double out = sqrt(pow(in1[0] - in2[0], 2) + pow(in1[1] - in2[1], 2) + pow(in1[2] - in2[2], 2));
   return(out);
