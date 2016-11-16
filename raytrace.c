@@ -506,7 +506,6 @@ int shootI(double* Ro, double* Rd){
     vectorUnit(Rd, Rd);
     double min = INFINITY;
     int closestObjectIndex = -1;
-    int i;
     int objectIndex = 0;
     while(objects[objectIndex].difColor != NULL){
         double t = 0;
@@ -518,10 +517,11 @@ int shootI(double* Ro, double* Rd){
         }
         if(t > 0 && t < min){
             min = t;
-            closestObjectIndex = i;
+            closestObjectIndex = objectIndex;
         }
         objectIndex++;
     }
+    //printf("closestObjectIndex: %d\n", closestObjectIndex);
     return closestObjectIndex;
 }
 
@@ -529,7 +529,7 @@ double* shade(int recursionLimit, double *color, int closestObjectIndex, double 
 
     // stop recursing
     if(recursionLimit == 0 || closestObjectIndex < 0 || min == INFINITY){
-        printf("test\n");
+        //printf("test\n");
         return black;
     }
 
@@ -636,20 +636,18 @@ double* shade(int recursionLimit, double *color, int closestObjectIndex, double 
           rcRo[1] = newRo[1] + rcRd[1]*0.01;
           rcRo[2] = newRo[2] + rcRd[2]*0.01;
 
-          //double rcMin = shootD(rcRo,rcRd);
-          double rcMin = 2.1;
-          //int rcIndex = shootI(rcRo,rcRd);
-          int rcIndex = 1;
-          //
+          double rcMin = shootD(rcRo,rcRd);
+          int rcIndex = shootI(rcRo,rcRd);
+
 
           // refraction
           double rcRo2[3] = {0,0,0};
-          memcpy(rcRo,newRo, sizeof(double)*3);
+          memcpy(rcRo, newRo, sizeof(double)*3);
 
           double oIor = initIor;
           double newIor = objects[closestObjectIndex].ior;
-          //double ior = oIor/newIor;
-          double ior = 0.6;
+          double ior = oIor/newIor;
+
 
           double c2 = sqrt(1 - sqr(ior) * (1 - sqr(c1)));
           double rcRd2[3] = {0,0,0};
@@ -664,34 +662,33 @@ double* shade(int recursionLimit, double *color, int closestObjectIndex, double 
           rcRo2[1] = newRo[1] + rcRd2[1]*0.01;
           rcRo2[2] = newRo[2] + rcRd2[2]*0.01;
 
-          printf("Test4\n");
+          //printf("Test4\n");
 
-          double rcMin2 = shootD(rcRo,rcRd2);
-          int rcIndex2 = shootI(rcRo,rcRd2);
-          //
+          double rcMin2 = shootD(rcRo2,rcRd2);
+          int rcIndex2 = shootI(rcRo2,rcRd2);
 
           double reflectColor[3] = {0,0,0};
           double refractColor[3] = {0,0,0};
 
-          printf("recursionLimit: %d\n", recursionLimit);
-          printf("reflectColor: %f, %f, %f\n", reflectColor[0], reflectColor[1], reflectColor[2]);
-          printf("rcIndex: %d\n", rcIndex);
-          printf("rcRo: %f, %f, %f\n", rcRo[0], rcRo[1], rcRo[2]);
-          printf("rcRd: %f, %f, %f\n", rcRd[0], rcRd[1], rcRd[2]);
-          printf("rcMin: %f\n", rcMin);
-          printf("ior: %f\n", ior);
+          // printf("recursionLimit: %d\n", recursionLimit);
+          // printf("reflectColor: %f, %f, %f\n", reflectColor[0], reflectColor[1], reflectColor[2]);
+          //printf("rcIndex1, 2: %d, %d\n", rcIndex, rcIndex2);
+          // printf("rcRo: %f, %f, %f\n", rcRo[0], rcRo[1], rcRo[2]);
+          // printf("rcRd: %f, %f, %f\n", rcRd[0], rcRd[1], rcRd[2]);
+          // printf("rcMin: %f\n", rcMin);
+          // printf("ior: %f\n", ior);
           if(objects[closestObjectIndex].reflect != 0){
             shade(recursionLimit-1, reflectColor, rcIndex, rcRo, rcRd, rcMin, ior);
           }
-          // if(objects[closestObjectIndex].refract != 0){
-          //   shade(recursionLimit-1, refractColor, rcIndex2, rcRo2, rcRd2, rcMin2,ior);
-          // }
-          // color[0] += (1 - objects[closestObjectIndex].reflect - objects[closestObjectIndex].refract) * fRad(lights[lightIndex], newRo) * fAng(lights[lightIndex], newRd) * (difContribution(0, currentDif, lights[lightIndex], NdL) + specContribution(0,currentSpec, lights[lightIndex], NdL, VdR, ns)) + ((objects[closestObjectIndex].reflect) * reflectColor[0]) + (objects[closestObjectIndex].refract) * refractColor[0];
-          //
-          // printf("%f\n", color[0]);
-          // color[1] += (1 - objects[closestObjectIndex].reflect - objects[closestObjectIndex].refract) * fRad(lights[lightIndex], newRo) * fAng(lights[lightIndex], newRd) * (difContribution(1, currentDif, lights[lightIndex], NdL) + specContribution(1,currentSpec, lights[lightIndex], NdL, VdR, ns)) + ((objects[closestObjectIndex].reflect) * reflectColor[1]) + (objects[closestObjectIndex].refract) * refractColor[1];
-          //
-          // color[2] += (1 - objects[closestObjectIndex].reflect - objects[closestObjectIndex].refract) * fRad(lights[lightIndex], newRo) * fAng(lights[lightIndex], newRd) * (difContribution(2, currentDif, lights[lightIndex], NdL) + specContribution(2,currentSpec, lights[lightIndex], NdL, VdR, ns)) + ((objects[closestObjectIndex].reflect) * reflectColor[2]) + (objects[closestObjectIndex].refract) * refractColor[2];
+          if(objects[closestObjectIndex].refract != 0){
+            shade(recursionLimit-1, refractColor, rcIndex2, rcRo2, rcRd2, rcMin2,ior);
+          }
+          color[0] += (1 - objects[closestObjectIndex].reflect - objects[closestObjectIndex].refract) * fRad(lights[lightIndex], newRo) * fAng(lights[lightIndex], newRd) * (difContribution(0, currentDif, lights[lightIndex], NdL) + specContribution(0,currentSpec, lights[lightIndex], NdL, VdR, ns)) + ((objects[closestObjectIndex].reflect) * reflectColor[0]) + (objects[closestObjectIndex].refract) * refractColor[0];
+
+          //printf("%f\n", color[0]);
+          color[1] += (1 - objects[closestObjectIndex].reflect - objects[closestObjectIndex].refract) * fRad(lights[lightIndex], newRo) * fAng(lights[lightIndex], newRd) * (difContribution(1, currentDif, lights[lightIndex], NdL) + specContribution(1,currentSpec, lights[lightIndex], NdL, VdR, ns)) + ((objects[closestObjectIndex].reflect) * reflectColor[1]) + (objects[closestObjectIndex].refract) * refractColor[1];
+
+          color[2] += (1 - objects[closestObjectIndex].reflect - objects[closestObjectIndex].refract) * fRad(lights[lightIndex], newRo) * fAng(lights[lightIndex], newRd) * (difContribution(2, currentDif, lights[lightIndex], NdL) + specContribution(2,currentSpec, lights[lightIndex], NdL, VdR, ns)) + ((objects[closestObjectIndex].reflect) * reflectColor[2]) + (objects[closestObjectIndex].refract) * refractColor[2];
         }
         lightIndex++;
     }
@@ -767,9 +764,9 @@ void raycast() {
         memcpy(colorActual, shade(RECURSION_LIMIT, color, closestObjectIndex, Ro, Rd, min, 1), sizeof(double)*3);
       }
 
-      // viewPlane[index].red = colorActual[0];
-      // viewPlane[index].green = colorActual[1];
-      // viewPlane[index].blue = colorActual[2];
+      viewPlane[index].red = colorActual[0];
+      viewPlane[index].green = colorActual[1];
+      viewPlane[index].blue = colorActual[2];
 
 
       index++;
@@ -919,6 +916,6 @@ int main(int argc, char** argv) {
 
     //testPrint();
     raycast();
-    //write_scene(argv[4], 3);
+    write_scene(argv[4], 3);
     return 0;
 }
