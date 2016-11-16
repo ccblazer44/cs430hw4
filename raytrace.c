@@ -8,9 +8,7 @@
 #define AUTHOR "CBLAZER"
 #define RGB_NUMBER 255
 #define RECURSION_LIMIT 7
-
-
-#define PI 3.141592653589793
+#define PI 3.14159
 
 
 //struct for holding objects
@@ -44,7 +42,7 @@ typedef struct Light{
 Light lights[128]; //array of lights
 
 
-typedef struct {
+typedef struct Pixel{
     double red;
     double green;
     double blue;
@@ -417,7 +415,8 @@ double sphereIntersect(double* Ro, double* Rd, double* position, double radius){
 
     //no intersection
     if(d < 0.0){
-      return 999999999999999999;
+      //return INFINITY;
+      return INFINITY;
     }
 
     double t = ((-b - sqrt(sqr(b) - 4.0*c*a))/(2.0*a));
@@ -483,9 +482,9 @@ double specContribution(int index, double* specColor, Light currentLight, double
 }
 
 
-double shootD(double* Ro, double* Rd){
+double shootD(double *Ro, double *Rd){
     vectorUnit(Rd, Rd);
-    double min = 999999999999999999;
+    double min = INFINITY;
 
     int objectIndex = 0;
     while(objects[objectIndex].difColor != NULL){
@@ -505,7 +504,7 @@ double shootD(double* Ro, double* Rd){
 }
 int shootI(double* Ro, double* Rd){
     vectorUnit(Rd, Rd);
-    double min = 999999999999999999;
+    double min = INFINITY;
     int closestObjectIndex = -1;
     int i;
     int objectIndex = 0;
@@ -526,10 +525,10 @@ int shootI(double* Ro, double* Rd){
     return closestObjectIndex;
 }
 
-double* shade(int recursionLimit, double* color, int closestObjectIndex, double Ro[], double Rd[], double min, double initIor){
+double* shade(int recursionLimit, double *color, int closestObjectIndex, double *Ro, double *Rd, double min, double initIor){
 
     // stop recursing
-    if(recursionLimit == 0 || closestObjectIndex < 0 || min == 999999999999999999){
+    if(recursionLimit == 0 || closestObjectIndex < 0 || min == INFINITY){
         printf("test\n");
         return black;
     }
@@ -554,143 +553,145 @@ double* shade(int recursionLimit, double* color, int closestObjectIndex, double 
         double distanceToPix = sqrt(sqr(lights[lightIndex].position[0]-newRo[0])+ sqr(lights[lightIndex].position[1]-newRo[1])+ sqr(lights[lightIndex].position[2]-newRo[2]));
 
 
-        double shadowMin = 999999999999999999;
+        double shadowMin = INFINITY;
         int closestShadowIndex = -1;
 
         int objectIndex = -1;
         while(objects[objectIndex + 1].difColor != NULL){
-            //printf("test0\n");
-            objectIndex++;
 
-            double tShadow = 0;
+          objectIndex++;
 
-            if(objectIndex == closestObjectIndex){
-              //printf("test1\n");
-              continue;
-            }
-            if(strcmp(objects[objectIndex].type, "sphere") == 0){
-              //printf("test2\n");
-              tShadow = sphereIntersect(newRo, newRd, objects[objectIndex].position, objects[objectIndex].radius);
-            }
-            if(strcmp(objects[objectIndex].type, "plane") == 0){
-              //printf("test3\n");
-              tShadow = planeIntersect(newRo, newRd, objects[objectIndex].position, objects[objectIndex].normal);
-            }
-            if(min > distanceToPix){
-              //printf("test4\n");
-              continue;
-            }
-            if(tShadow > 0.0 && tShadow < shadowMin){
-              //printf("test5\n");
-              shadowMin = tShadow;
-              closestShadowIndex = objectIndex;
-            }
-            //printf("test6\n");
+          double tShadow = 0;
 
+          if(objectIndex == closestObjectIndex){
+            continue;
+          }
+          if(strcmp(objects[objectIndex].type, "sphere") == 0){
+            tShadow = sphereIntersect(newRo, newRd, objects[objectIndex].position, objects[objectIndex].radius);
+          }
+          if(strcmp(objects[objectIndex].type, "plane") == 0){
+            tShadow = planeIntersect(newRo, newRd, objects[objectIndex].position, objects[objectIndex].normal);
+          }
+          if(min > distanceToPix){
+            continue;
+          }
+          if(tShadow > 0.0 && tShadow < shadowMin){
+            shadowMin = tShadow;
+            closestShadowIndex = objectIndex;
+          }
         }
 
         if(closestShadowIndex < 0){
-            printf("Test1\n");
-            double closeNorm[3] = {0,0,0};
 
-            if(strcmp(objects[closestObjectIndex].type, "sphere") == 0){
-              vectorSub(newRo, objects[closestObjectIndex].position, closeNorm);
-            }
-            if(strcmp(objects[closestObjectIndex].type, "plane") == 0){
-              closeNorm[0] = objects[closestObjectIndex].normal[0];
-              closeNorm[1] = objects[closestObjectIndex].normal[1];
-              closeNorm[2] = objects[closestObjectIndex].normal[2];
-            }
-            printf("Test2\n");
-            vectorUnit(closeNorm, closeNorm);
-            double *vDirection = newRd;
-            double reflectionVector[3] = {0,0,0};
+          double closeNorm[3] = {0,0,0};
 
-            vectorReflect(closeNorm, vDirection, reflectionVector);
-            printf("Test3\n");
+          if(strcmp(objects[closestObjectIndex].type, "sphere") == 0){
+            vectorSub(newRo, objects[closestObjectIndex].position, closeNorm);
+          }
+          if(strcmp(objects[closestObjectIndex].type, "plane") == 0){
+            closeNorm[0] = objects[closestObjectIndex].normal[0];
+            closeNorm[1] = objects[closestObjectIndex].normal[1];
+            closeNorm[2] = objects[closestObjectIndex].normal[2];
+          }
 
-            vectorUnit(reflectionVector, reflectionVector);
+          vectorUnit(closeNorm, closeNorm);
+          double *vDirection = newRd;
+          double reflectionVector[3] = {0,0,0};
 
-            double cVector[3] = {0,0,0};
-            cVector[0] = Rd[0];
-            cVector[1] = Rd[1];
-            cVector[2] = Rd[2];
-            vectorUnit(cVector, cVector);
+          vectorReflect(closeNorm, vDirection, reflectionVector);
 
-            double* currentDif = objects[closestObjectIndex].difColor;
-            double* currentSpec = objects[closestObjectIndex].specColor;
-            double ns = 20;
+          vectorUnit(reflectionVector, reflectionVector);
 
-            vectorUnit(closeNorm, closeNorm);
-            vectorUnit(vDirection, vDirection);
+          double cVector[3] = {0,0,0};
+          cVector[0] = Rd[0];
+          cVector[1] = Rd[1];
+          cVector[2] = Rd[2];
+          vectorUnit(cVector, cVector);
+
+          double* currentDif = objects[closestObjectIndex].difColor;
+          double* currentSpec = objects[closestObjectIndex].specColor;
+          double ns = 20;
+
+          vectorUnit(closeNorm, closeNorm);
+          vectorUnit(vDirection, vDirection);
 
 
-            double VdR = vectorDot(cVector, reflectionVector);
-            double NdL = vectorDot(closeNorm, vDirection);
+          double VdR = vectorDot(cVector, reflectionVector);
+          double NdL = vectorDot(closeNorm, vDirection);
 
-            // reflection
-            double rcRo[3] = {0,0,0};
-            memcpy(rcRo,newRo, sizeof(double)*3);
+          // reflection
+          double rcRo[3] = {0,0,0};
+          memcpy(rcRo,newRo, sizeof(double)*3);
 
-            double rcRd[3] = {0,0,0};
-            double c1;
-            c1 = vectorDot(closeNorm, Rd);
-            c1 = -1*c1;
-            vectorMult(closeNorm, c1, rcRd);
-            vectorMult(rcRd, 2, rcRd);
-            vectorAdd(Rd, rcRd, rcRd);
-            vectorUnit(rcRd, rcRd);
+          double rcRd[3] = {0,0,0};
+          double c1;
+          c1 = vectorDot(closeNorm, Rd);
+          c1 = -1*c1;
+          vectorMult(closeNorm, c1, rcRd);
+          vectorMult(rcRd, 2, rcRd);
+          vectorAdd(Rd, rcRd, rcRd);
+          vectorUnit(rcRd, rcRd);
 
-            rcRo[0] = newRo[0] + rcRd[0]*0.01;
-            rcRo[1] = newRo[1] + rcRd[1]*0.01;
-            rcRo[2] = newRo[2] + rcRd[2]*0.01;
+          rcRo[0] = newRo[0] + rcRd[0]*0.01;
+          rcRo[1] = newRo[1] + rcRd[1]*0.01;
+          rcRo[2] = newRo[2] + rcRd[2]*0.01;
 
-            double rcMin = shootD(rcRo,rcRd);
-            int rcIndex = shootI(rcRo,rcRd);
-            //
+          //double rcMin = shootD(rcRo,rcRd);
+          double rcMin = 2.1;
+          //int rcIndex = shootI(rcRo,rcRd);
+          int rcIndex = 1;
+          //
 
-            // refraction
-            double rcRo2[3] = {0,0,0};
-            memcpy(rcRo,newRo, sizeof(double)*3);
+          // refraction
+          double rcRo2[3] = {0,0,0};
+          memcpy(rcRo,newRo, sizeof(double)*3);
 
-            double oIor = initIor;
-            double newIor = objects[closestObjectIndex].ior;
-            double ior = oIor/newIor;
+          double oIor = initIor;
+          double newIor = objects[closestObjectIndex].ior;
+          //double ior = oIor/newIor;
+          double ior = 0.6;
 
-            double c2 = sqrt(1 - sqr(ior) * (1 - sqr(c1)));
-            double rcRd2[3] = {0,0,0};
-            double temp[3] = {0,0,0};
-            vectorMult(Rd, ior, temp);
-            vectorMult(closeNorm, (ior*c1-c2), rcRd2);
-            vectorAdd(temp,rcRd2,rcRd2);
-            vectorMult(rcRd2, -1, rcRd2);
-            vectorUnit(rcRd2, rcRd2);
+          double c2 = sqrt(1 - sqr(ior) * (1 - sqr(c1)));
+          double rcRd2[3] = {0,0,0};
+          double temp[3] = {0,0,0};
+          vectorMult(Rd, ior, temp);
+          vectorMult(closeNorm, (ior*c1-c2), rcRd2);
+          vectorAdd(temp,rcRd2,rcRd2);
+          vectorMult(rcRd2, -1, rcRd2);
+          vectorUnit(rcRd2, rcRd2);
 
-            rcRo2[0] = newRo[0] + rcRd2[0]*0.01;
-            rcRo2[1] = newRo[1] + rcRd2[1]*0.01;
-            rcRo2[2] = newRo[2] + rcRd2[2]*0.01;
+          rcRo2[0] = newRo[0] + rcRd2[0]*0.01;
+          rcRo2[1] = newRo[1] + rcRd2[1]*0.01;
+          rcRo2[2] = newRo[2] + rcRd2[2]*0.01;
 
-            printf("Test4\n");
+          printf("Test4\n");
 
-            double rcMin2 = shootD(rcRo,rcRd2);
-            int rcIndex2 = shootI(rcRo,rcRd2);
-            //
+          double rcMin2 = shootD(rcRo,rcRd2);
+          int rcIndex2 = shootI(rcRo,rcRd2);
+          //
 
-            double reflectColor[3] = {0,0,0};
-            double refractColor[3] = {0,0,0};
+          double reflectColor[3] = {0,0,0};
+          double refractColor[3] = {0,0,0};
 
-            if(objects[closestObjectIndex].reflect != 0){
-              shade(recursionLimit-1, reflectColor, rcIndex, rcRo, rcRd, rcMin,ior);
-            }
-            if(objects[closestObjectIndex].refract != 0){
-              shade(recursionLimit-1, refractColor, rcIndex2, rcRo2, rcRd2, rcMin2,ior);
-            }
-            color[0] += (1 - objects[closestObjectIndex].reflect - objects[closestObjectIndex].refract) * fRad(lights[lightIndex], newRo) * fAng(lights[lightIndex], newRd) * (difContribution(0, currentDif, lights[lightIndex], NdL) + specContribution(0,currentSpec, lights[lightIndex], NdL, VdR, ns)) + ((objects[closestObjectIndex].reflect) * reflectColor[0]) + (objects[closestObjectIndex].refract) * refractColor[0];
-
-            printf("%f\n", color[0]);
-            color[1] += (1 - objects[closestObjectIndex].reflect - objects[closestObjectIndex].refract) * fRad(lights[lightIndex], newRo) * fAng(lights[lightIndex], newRd) * (difContribution(1, currentDif, lights[lightIndex], NdL) + specContribution(1,currentSpec, lights[lightIndex], NdL, VdR, ns)) + ((objects[closestObjectIndex].reflect) * reflectColor[1]) + (objects[closestObjectIndex].refract) * refractColor[1];
-
-            color[2] += (1 - objects[closestObjectIndex].reflect - objects[closestObjectIndex].refract) * fRad(lights[lightIndex], newRo) * fAng(lights[lightIndex], newRd) * (difContribution(2, currentDif, lights[lightIndex], NdL) + specContribution(2,currentSpec, lights[lightIndex], NdL, VdR, ns)) + ((objects[closestObjectIndex].reflect) * reflectColor[2]) + (objects[closestObjectIndex].refract) * refractColor[2];
+          printf("recursionLimit: %d\n", recursionLimit);
+          printf("reflectColor: %f, %f, %f\n", reflectColor[0], reflectColor[1], reflectColor[2]);
+          printf("rcIndex: %d\n", rcIndex);
+          printf("rcRo: %f, %f, %f\n", rcRo[0], rcRo[1], rcRo[2]);
+          printf("rcRd: %f, %f, %f\n", rcRd[0], rcRd[1], rcRd[2]);
+          printf("rcMin: %f\n", rcMin);
+          printf("ior: %f\n", ior);
+          if(objects[closestObjectIndex].reflect != 0){
+            shade(recursionLimit-1, reflectColor, rcIndex, rcRo, rcRd, rcMin, ior);
+          }
+          // if(objects[closestObjectIndex].refract != 0){
+          //   shade(recursionLimit-1, refractColor, rcIndex2, rcRo2, rcRd2, rcMin2,ior);
+          // }
+          // color[0] += (1 - objects[closestObjectIndex].reflect - objects[closestObjectIndex].refract) * fRad(lights[lightIndex], newRo) * fAng(lights[lightIndex], newRd) * (difContribution(0, currentDif, lights[lightIndex], NdL) + specContribution(0,currentSpec, lights[lightIndex], NdL, VdR, ns)) + ((objects[closestObjectIndex].reflect) * reflectColor[0]) + (objects[closestObjectIndex].refract) * refractColor[0];
+          //
+          // printf("%f\n", color[0]);
+          // color[1] += (1 - objects[closestObjectIndex].reflect - objects[closestObjectIndex].refract) * fRad(lights[lightIndex], newRo) * fAng(lights[lightIndex], newRd) * (difContribution(1, currentDif, lights[lightIndex], NdL) + specContribution(1,currentSpec, lights[lightIndex], NdL, VdR, ns)) + ((objects[closestObjectIndex].reflect) * reflectColor[1]) + (objects[closestObjectIndex].refract) * refractColor[1];
+          //
+          // color[2] += (1 - objects[closestObjectIndex].reflect - objects[closestObjectIndex].refract) * fRad(lights[lightIndex], newRo) * fAng(lights[lightIndex], newRd) * (difContribution(2, currentDif, lights[lightIndex], NdL) + specContribution(2,currentSpec, lights[lightIndex], NdL, VdR, ns)) + ((objects[closestObjectIndex].reflect) * reflectColor[2]) + (objects[closestObjectIndex].refract) * refractColor[2];
         }
         lightIndex++;
     }
@@ -710,7 +711,7 @@ void raycast() {
   double Ro[3] = {0.0, 0.0, 0.0};
 
   //loop through all pixels
-  for(i = 0; i < Width; i++){
+  for(i = Width; i > 0; i--){
     for(j = 0; j < Height; j++){
 
       double x, y, z = 1; //z is always 1 because the view plane is 1 unit away from camera
@@ -722,7 +723,7 @@ void raycast() {
       double Rd[3] = {x, y, z};
       vectorUnit(Rd, Rd);
 
-      double min = 999999999999999999; //set min so that close objects display over further ones
+      double min = INFINITY; //set min so that close objects display over further ones
 
       double t;
       int closestObjectIndex = -1;
@@ -753,8 +754,6 @@ void raycast() {
 
       }
 
-
-
       double color[3] = {0,0,0};
 
       color[0] = 0;
@@ -763,14 +762,14 @@ void raycast() {
 
       double colorActual[3] = {0,0,0};
 
-      if(min > 0 && min != 999999999999999999){
+      if(min > 0 && min != INFINITY){
         // here is the recursion, gets the color to set the pixel as
-        memcpy(colorActual,shade(RECURSION_LIMIT, color, closestObjectIndex, Ro, Rd, min, 1), sizeof(double)*3);
+        memcpy(colorActual, shade(RECURSION_LIMIT, color, closestObjectIndex, Ro, Rd, min, 1), sizeof(double)*3);
       }
 
-      viewPlane[index].red = colorActual[0];
-      viewPlane[index].green = colorActual[1];
-      viewPlane[index].blue = colorActual[2];
+      // viewPlane[index].red = colorActual[0];
+      // viewPlane[index].green = colorActual[1];
+      // viewPlane[index].blue = colorActual[2];
 
 
       index++;
@@ -841,6 +840,10 @@ void testPrint(){
 
     if (objects[index].radius != 0) {
       printf("radius: %f\n", objects[index].radius);
+    }
+
+    if (objects[index].ior != 0) {
+      printf("ior: %f\n", objects[index].ior);
     }
 
     if (objects[index].difColor != NULL) {
@@ -916,6 +919,6 @@ int main(int argc, char** argv) {
 
     //testPrint();
     raycast();
-    write_scene(argv[4], 3);
+    //write_scene(argv[4], 3);
     return 0;
 }
