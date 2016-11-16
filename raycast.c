@@ -7,6 +7,7 @@
 //#define DEBUG
 #define AUTHOR "CBLAZER"
 #define RGB_NUMBER 255
+#define RECURSION_LIMIT 7
 
 
 //struct for holding objects
@@ -303,13 +304,18 @@ void read_scene(char* filename) {
   }
 }
 
+// added my own sqr function like c's built in sqrt
+double sqr(double num){
+  return num*num;
+}
+
 double tClosestApproachPlane(double *normal, double *origin, double *position, double *lookUVector) {
   double out = -(normal[0] * (origin[0] - position[0]) + normal[1] * (origin[1] - position[1]) + normal[2] * (origin[2] - position[2])) / (normal[0] * lookUVector[0] + normal[1] * lookUVector[1] + normal[2] * lookUVector[2]);
   return(out);
 }
 
 double tClosestApproachSphere(double *in1, double *in2){
-  double out = (in1[0] * in2[0] + in1[1] * in2[1] + in1[2] * in2[2]) / (pow(in1[0],2) + pow(in1[1],2) + pow(in1[2],2));
+  double out = (in1[0] * in2[0] + in1[1] * in2[1] + in1[2] * in2[2]) / (sqr(in1[0]) + sqr(in1[1]) + sqr(in1[2]));
   return(out);
 }
 
@@ -343,19 +349,11 @@ double vectorDot(double* in1, double* in2){
 }
 
 double vectorMag(double *vector) {
-  double out = sqrt(pow(vector[0], 2) + pow(vector[1], 2) + pow(vector[2], 2));
-  return(out);
+  return sqrt(sqr(vector[0]) + sqr(vector[1]) + sqr(vector[2]));
 }
 
 void vectorUnit(double *in, double *out){
-
   vectorDiv(in, vectorMag(in), out);
-
-}
-
-// added my own sqr function like c's built in sqrt
-double sqr(double num){
-  return num*num;
 }
 
 
@@ -382,12 +380,67 @@ void vectorReflect(double* d, double* n, double* r){
 
 }
 
+double planeIntersect(double* Ro, double* Rd, double* position, double* normal){
+
+    vectorUnit(normal, normal);
+    double a = normal[0];
+    double b = normal[1];
+    double c = normal[2];
+    vectorUnit(Rd, Rd);
+
+    double x0 = position[0];
+    double y0 = position[1];
+    double z0 = position[2];
+
+    double d = -(a*x0 + b*y0 + c*z0);
+
+    double e = (a*Rd[0] + b*Rd[1] + c*Rd[2]);
+    if(e == 0.0) return -1;
+    double t = -(a*Ro[0] + b*Ro[1] + c*Ro[2] + d)/(a*Rd[0] + b*Rd[1] + c*Rd[2]);
+
+    return t;
+}
+
+double sphereIntersect(double* Ro, double* Rd, double* position, double radius){
+
+    double x = position[0];
+    double y = position[1];
+    double z = position[2];
+    vectorUnit(Rd, Rd);
+
+    double a = sqr(Rd[0])+sqr(Rd[1])+sqr(Rd[2]);
+    double b = 2*(Rd[0]*(Ro[0]-x) + Rd[1]*(Ro[1]-y) + Rd[2]*(Ro[2]-z));
+    double c = (sqr((Ro[0]-x)) + sqr((Ro[1]-y)) + sqr((Ro[2]-z)) - sqr(radius));
+
+    double d = (sqr(b) - 4*a*c);
+
+    //no intersection
+    if(d < 0.0){
+      return 999999999999999999;
+    }
+
+    double t = ((-b - sqrt(sqr(b) - 4.0*c*a))/(2.0*a));
+    if(t > 0){
+      return t;
+    }
+    else{
+      t = ((-b + sqrt(sqr(b) - 4.0*c*a))/(2.0*a));
+      return t;
+    }
+
+    return -1;
+
+}
+
 void raycast() {
 
   int i;
   int j;
   int index = 0;
   int objectIndex;
+
+  // camera position
+  double Ro[3] = {0.0, 0.0, 0.0};
 
   //loop through all pixels
   for(i = 0; i < Height; i++){
@@ -403,13 +456,17 @@ void raycast() {
       x = 0 - (cameraWidth/2) + ((cameraWidth/Width)*(j + 0.5));
       y = 0 - (cameraHeight/2) + ((cameraHeight/Height)*(i + 0.5));
 
-      //calculate magnitude using "distance formula"
-      double magnitude = sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2));
-
-      //replace vector with unit vector
-      x = x/magnitude;
-      y = y/magnitude;
-      z = z/magnitude;
+      // //calculate magnitude using "distance formula"
+      // double magnitude = sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2));
+      //
+      // //replace vector with unit vector
+      // x = x/magnitude;
+      // y = y/magnitude;
+      // z = z/magnitude;
+      //
+      //
+      double Rd[3] = {x, y, z};
+      vectorUnit(Rd, Rd);
 
       double min = 999999999999999999; //set min so that close objects display over further ones
       objectIndex = 0;
@@ -422,21 +479,23 @@ void raycast() {
 
         if(strcmp(objects[objectIndex].type, "sphere") == 0){
 
-          //use unit vector to calculate collision
-          t = (((x * objects[objectIndex].position[0]) + (y * objects[objectIndex].position[1]) + (z * objects[objectIndex].position[2]))/(pow(x, 2) + pow(y, 2) + pow(z, 2)));
+          // //use unit vector to calculate collision
+          // t = (((x * objects[objectIndex].position[0]) + (y * objects[objectIndex].position[1]) + (z * objects[objectIndex].position[2]))/(pow(x, 2) + pow(y, 2) + pow(z, 2)));
+          //
+          // //find point on vector closest to center of sphere
+          // double tCloseX = x * t;
+          // double tCloseY = y * t;
+          // double tCloseZ = z * t;
+          // double d = sqrt(pow((tCloseX - objects[objectIndex].position[0]), 2) + pow((tCloseY - objects[objectIndex].position[1]), 2) + pow((tCloseZ - objects[objectIndex].position[2]), 2));
+          //
+          // //check if point is closer than radius (if there is an intersection)
+          // if(d <= objects[objectIndex].radius){
+          //
+          //   //find distance from camera to actual intersection point and set it to t
+          //   double a = sqrt(pow(objects[objectIndex].radius, 2) - pow(d, 2));
+          //   t = t - a;
 
-          //find point on vector closest to center of sphere
-          double tCloseX = x * t;
-          double tCloseY = y * t;
-          double tCloseZ = z * t;
-          double d = sqrt(pow((tCloseX - objects[objectIndex].position[0]), 2) + pow((tCloseY - objects[objectIndex].position[1]), 2) + pow((tCloseZ - objects[objectIndex].position[2]), 2));
-
-          //check if point is closer than radius (if there is an intersection)
-          if(d <= objects[objectIndex].radius){
-
-            //find distance from camera to actual intersection point and set it to t
-            double a = sqrt(pow(objects[objectIndex].radius, 2) - pow(d, 2));
-            t = t - a;
+          t = sphereIntersect(Ro, Rd, objects[objectIndex].position, objects[objectIndex].radius);
 
             //set new min so that close spheres display over further ones
             if (t > 0 && min >= t){
@@ -447,13 +506,14 @@ void raycast() {
               poi[2] = t * z;
               closestObjectIndex = objectIndex;
             }
-          }
+          //}
         }
         else if(strcmp(objects[objectIndex].type, "plane") == 0){
 
           //use unit vector to calculate collision
-          t = -(objects[objectIndex].normal[0] * (0 - objects[objectIndex].position[0]) + objects[objectIndex].normal[1] * (0 - objects[objectIndex].position[1]) + objects[objectIndex].normal[2] * (0 - objects[objectIndex].position[2])) / (objects[objectIndex].normal[0] * x + objects[objectIndex].normal[1] * y + objects[objectIndex].normal[2] * z);
+          //t = -(objects[objectIndex].normal[0] * (0 - objects[objectIndex].position[0]) + objects[objectIndex].normal[1] * (0 - objects[objectIndex].position[1]) + objects[objectIndex].normal[2] * (0 - objects[objectIndex].position[2])) / (objects[objectIndex].normal[0] * x + objects[objectIndex].normal[1] * y + objects[objectIndex].normal[2] * z);
 
+          t = planeIntersect(Ro, Rd, objects[objectIndex].position, objects[objectIndex].normal);
           if (t > 0 && min >= t) {
             //viewPlane[index] = objects[objectIndex].difColor; //push color into viewPane
             min = t;
